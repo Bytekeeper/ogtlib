@@ -1,39 +1,55 @@
-use crate::gl::{self, types::*};
+use crate::texture::*;
+use crate::Context;
 use glam::f32::*;
 use memoffset::*;
+use miniquad::gl::*;
+use std::borrow::Borrow;
 use std::ffi::CString;
 use std::mem::{size_of, size_of_val};
 use std::rc::Rc;
 
 pub trait Transform2D {
-    fn transform(&self, origin: (f32, f32), region: Region) -> [(f32, f32); 4];
+    fn transform(&self, origin: Vec2, region: Region) -> [Vec3; 4];
 }
 
 impl Transform2D for Vec2 {
-    fn transform(&self, origin: (f32, f32), region: Region) -> [(f32, f32); 4] {
+    fn transform(&self, _origin: Vec2, region: Region) -> [Vec3; 4] {
         let right = self.x + region.bottom_right[0] - region.top_left[0];
         let bottom = self.y + region.bottom_right[1] - region.top_left[1];
         [
-            (self.x, self.y),
-            (right, self.y),
-            (right, bottom),
-            (self.x, bottom),
+            vec3(self.x, self.y, 0.0),
+            vec3(right, self.y, 0.0),
+            vec3(right, bottom, 0.0),
+            vec3(self.x, bottom, 0.0),
+        ]
+    }
+}
+
+impl Transform2D for Vec3 {
+    fn transform(&self, _origin: Vec2, region: Region) -> [Vec3; 4] {
+        let right = self.x + region.bottom_right[0] - region.top_left[0];
+        let bottom = self.y + region.bottom_right[1] - region.top_left[1];
+        [
+            *self,
+            vec3(right, self.y, self.z),
+            vec3(right, bottom, self.z),
+            vec3(self.x, bottom, self.z),
         ]
     }
 }
 
 impl Transform2D for Affine2 {
-    fn transform(&self, origin: (f32, f32), region: Region) -> [(f32, f32); 4] {
-        let right = region.bottom_right[0] - region.top_left[0] - origin.0;
-        let bottom = region.bottom_right[1] - region.top_left[1] - origin.1;
+    fn transform(&self, origin: Vec2, region: Region) -> [Vec3; 4] {
+        let right = region.bottom_right[0] - region.top_left[0] - origin.x;
+        let bottom = region.bottom_right[1] - region.top_left[1] - origin.y;
         [
-            vec2(-origin.0, -origin.1),
-            vec2(right, -origin.1),
+            vec2(-origin.x, -origin.y),
+            vec2(right, -origin.y),
             vec2(right, bottom),
-            vec2(-origin.0, bottom),
+            vec2(-origin.x, bottom),
         ]
         .map(|v| self.transform_point2(v))
-        .map(|p| (p.x, p.y))
+        .map(|p| vec3(p.x + origin.x, p.y + origin.y, 0.0))
     }
 }
 
@@ -46,22 +62,6 @@ impl Color {
     }
 }
 
-#[derive(Clone, Copy)]
-pub struct TextureData {
-    pub id: u32,
-    pub width: u32,
-    pub height: u32,
-}
-
-#[derive(Clone)]
-pub struct Texture(pub Rc<TextureData>);
-
-#[derive(Clone, Copy)]
-pub struct Region {
-    pub top_left: [f32; 2],
-    pub bottom_right: [f32; 2],
-}
-
 #[repr(C)]
 #[derive(Copy, Clone)]
 struct Vertex {
@@ -71,8 +71,8 @@ struct Vertex {
 }
 
 pub struct SpriteBatch {
-    max_sprites: usize,
-    sprite_count: usize,
+    max_sprites: u16,
+    sprite_count: u16,
     vertex_array_id: GLuint,
     array_buffer_data: Vec<Vertex>,
     shader_id: GLuint,
@@ -82,50 +82,48 @@ pub struct SpriteBatch {
 }
 
 impl SpriteBatch {
-    pub fn new(gl: &gl::Gl) -> Self {
+    pub fn new(gl: &Context) -> Self {
         Self::with_max_sprites(gl, 10_000)
     }
 
-    pub fn draw(&mut self, gl: &gl::Gl) {
+    pub fn draw(&mut self, context: &Context) {
         unsafe {
-            gl.UseProgram(self.shader_id);
-            gl.UniformMatrix4fv(
+            glUseProgram(self.shader_id);
+            glUniformMatrix4fv(
                 self.uniform_mvp,
                 1,
-                gl::FALSE,
+                GL_FALSE as u8,
                 self.model_view_projection.to_cols_array().as_ptr(),
             );
-            gl.BindVertexArray(self.vertex_array_id);
-            // gl.BindBuffer(gl::ARRAY_BUFFER, self.array_buffer_id);
-            // gl.BufferData(
-            //     gl::ARRAY_BUFFER,
-            //     (size_of_val(&self.array_buffer_data[..])) as isize,
-            //     self.array_buffer_data.as_ptr() as *const GLvoid,
-            //     gl::STREAM_DRAW,
-            // );
-            debug_assert_eq!(
-                self.sprite_count * 4 * size_of::<Vertex>(),
-                size_of_val(&self.array_buffer_data[..])
-            );
-            gl.BufferSubData(
-                gl::ARRAY_BUFFER,
-                0,
-                (self.sprite_count * 4 * size_of::<Vertex>()) as isize,
+            glBindVertexArray(self.vertex_array_id);
+            // glBindBuffer(GL_ARRAY_BUFFER, self.array_buffer_id);
+            // According to https://thothonegan.tumblr.com/post/135193767243/glbuffersubdata-vs-glbufferdata
+            // this is better as the GPU can work on the buffer without blocking
+            glBufferData(
+                GL_ARRAY_BUFFER,
+                (size_of_val(&self.array_buffer_data[..])) as GLsizeiptr,
                 self.array_buffer_data.as_ptr() as *const GLvoid,
+                GL_STREAM_DRAW,
             );
-            gl.BindTexture(
-                gl::TEXTURE_2D,
-                (*self
-                    .texture
-                    .as_ref()
-                    .expect("Texture must be set on SpriteBatch")
-                    .0)
-                    .id,
-            );
-            gl.DrawElements(
-                gl::TRIANGLES,
+            // debug_assert_eq!(
+            //     self.sprite_count * 4 * size_of::<Vertex>(),
+            //     size_of_val(&self.array_buffer_data[..])
+            // );
+            // glBufferSubData(
+            //     GL_ARRAY_BUFFER,
+            //     0,
+            //     (self.sprite_count * 4 * size_of::<Vertex>()) as GLsizeiptr,
+            //     self.array_buffer_data.as_ptr() as *const GLvoid,
+            // );
+            self.texture
+                .as_ref()
+                .expect("Texture must be set on SpriteBatch")
+                .borrow()
+                .bind(context);
+            glDrawElements(
+                GL_TRIANGLES,
                 self.sprite_count as i32 * 6,
-                gl::UNSIGNED_INT,
+                GL_UNSIGNED_SHORT,
                 0 as *const GLvoid,
             );
         }
@@ -133,24 +131,24 @@ impl SpriteBatch {
         self.array_buffer_data.clear();
     }
 
-    pub fn add<T: Transform2D>(
+    pub fn add<X: Transform2D>(
         &mut self,
-        gl: &gl::Gl,
+        gl: &Context,
         sprite: Region,
         color: Color,
         origin: Vec2,
-        transform: T,
+        transform: X,
     ) {
         if self.sprite_count == self.max_sprites {
             self.draw(gl);
         }
-        let texture_data = &*self
+        let texture_data = &self
             .texture
             .as_ref()
             .expect("Texture must be set on SpriteBatch")
-            .0;
+            .borrow();
         let (width, height) = (texture_data.width as f32, texture_data.height as f32);
-        let vertices = transform.transform((origin.x, origin.y), sprite);
+        let vertices = transform.transform(origin, sprite);
         for (pos, uv) in vertices.iter().zip([
             [sprite.top_left[0] / width, sprite.bottom_right[1] / height],
             [
@@ -161,7 +159,7 @@ impl SpriteBatch {
             [sprite.top_left[0] / width, sprite.top_left[1] / height],
         ]) {
             self.array_buffer_data.push(Vertex {
-                pos: [pos.0, pos.1, 0.0],
+                pos: [pos.x, pos.y, pos.z],
                 uv,
                 color: color.0,
             });
@@ -169,73 +167,74 @@ impl SpriteBatch {
         self.sprite_count += 1;
     }
 
-    fn with_max_sprites(gl: &gl::Gl, max: usize) -> Self {
-        let shader_id = crate::shader::load_shaders(&gl, VERTEX_SHADER, FRAGMENT_SHADER).unwrap();
+    pub fn with_max_sprites(context: &Context, max: u16) -> Self {
+        let shader_id =
+            crate::shader::load_shaders(&context, VERTEX_SHADER, FRAGMENT_SHADER).unwrap();
         let matrix_id = unsafe {
             let mvp = CString::new("MVP").unwrap();
-            gl.GetUniformLocation(shader_id, mvp.as_ptr())
+            glGetUniformLocation(shader_id, mvp.as_ptr())
         };
-        let array_buffer_data = Vec::with_capacity(max * 4);
-        let mut element_buffer_data = Vec::with_capacity(max * 6);
+        let array_buffer_data = Vec::with_capacity(max as usize * 4);
+        let mut element_buffer_data = Vec::with_capacity(max as usize * 6);
         for i in (0..max * 4).step_by(4) {
-            element_buffer_data.push(i as u32);
-            element_buffer_data.push(i as u32 + 1);
-            element_buffer_data.push(i as u32 + 3);
-            element_buffer_data.push(i as u32 + 1);
-            element_buffer_data.push(i as u32 + 2);
-            element_buffer_data.push(i as u32 + 3);
+            element_buffer_data.push(i as u16);
+            element_buffer_data.push(i as u16 + 1);
+            element_buffer_data.push(i as u16 + 3);
+            element_buffer_data.push(i as u16 + 1);
+            element_buffer_data.push(i as u16 + 2);
+            element_buffer_data.push(i as u16 + 3);
         }
         let mut vertex_array_id: GLuint = 0;
         let mut array_buffer_id: GLuint = 0;
         let mut element_buffer_id: GLuint = 0;
         unsafe {
-            gl.GenVertexArrays(1, &mut vertex_array_id as *mut GLuint);
-            gl.BindVertexArray(vertex_array_id);
-            gl.EnableVertexAttribArray(0);
-            gl.EnableVertexAttribArray(1);
-            gl.EnableVertexAttribArray(2);
+            glGenVertexArrays(1, &mut vertex_array_id as *mut GLuint);
+            glBindVertexArray(vertex_array_id);
+            glEnableVertexAttribArray(0);
+            glEnableVertexAttribArray(1);
+            glEnableVertexAttribArray(2);
 
-            gl.GenBuffers(1, &mut array_buffer_id as *mut GLuint);
-            gl.BindBuffer(gl::ARRAY_BUFFER, array_buffer_id);
-            gl.BufferData(
-                gl::ARRAY_BUFFER,
-                (size_of::<Vertex>() * 4 * max) as isize,
-                0 as *const GLvoid,
-                gl::DYNAMIC_DRAW,
-            );
+            glGenBuffers(1, &mut array_buffer_id as *mut GLuint);
+            glBindBuffer(GL_ARRAY_BUFFER, array_buffer_id);
+            // glBufferData(
+            //     GL_ARRAY_BUFFER,
+            //     (size_of::<Vertex>() * 4 * max) as GLsizeiptr,
+            //     0 as *const GLvoid,
+            //     GL_DYNAMIC_DRAW,
+            // );
             let stride = size_of::<Vertex>() as i32;
-            gl.VertexAttribPointer(
+            glVertexAttribPointer(
                 0,
                 3,
-                gl::FLOAT,
-                gl::FALSE,
+                GL_FLOAT,
+                GL_FALSE as u8,
                 stride,
                 offset_of!(Vertex, pos) as *const GLvoid,
             );
-            gl.VertexAttribPointer(
+            glVertexAttribPointer(
                 1,
                 2,
-                gl::FLOAT,
-                gl::FALSE,
+                GL_FLOAT,
+                GL_FALSE as u8,
                 stride,
                 offset_of!(Vertex, uv) as *const GLvoid,
             );
-            gl.VertexAttribPointer(
+            glVertexAttribPointer(
                 2,
                 4,
-                gl::UNSIGNED_BYTE,
-                gl::TRUE,
+                GL_UNSIGNED_BYTE,
+                GL_TRUE as u8,
                 stride,
                 offset_of!(Vertex, color) as *const GLvoid,
             );
 
-            gl.GenBuffers(1, &mut element_buffer_id as *mut GLuint);
-            gl.BindBuffer(gl::ELEMENT_ARRAY_BUFFER, element_buffer_id);
-            gl.BufferData(
-                gl::ELEMENT_ARRAY_BUFFER,
-                std::mem::size_of_val(&element_buffer_data[..]) as isize,
+            glGenBuffers(1, &mut element_buffer_id as *mut GLuint);
+            glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, element_buffer_id);
+            glBufferData(
+                GL_ELEMENT_ARRAY_BUFFER,
+                std::mem::size_of_val(&element_buffer_data[..]) as GLsizeiptr,
                 element_buffer_data.as_ptr() as *const GLvoid,
-                gl::STATIC_DRAW,
+                GL_STATIC_DRAW,
             );
         }
         Self {
@@ -251,6 +250,7 @@ impl SpriteBatch {
     }
 
     pub fn set_texture(&mut self, texture: Texture) {
+        assert_eq!(self.sprite_count, 0, "Texture must be set before drawing");
         self.texture = Some(texture);
     }
 
@@ -259,13 +259,16 @@ impl SpriteBatch {
     }
 }
 
-const VERTEX_SHADER: &str = r#"#version 330 core
-layout(location = 0) in vec3 vertex_pos;
-layout(location = 1) in vec2 tex_uv;
-layout(location = 2) in vec4 vertex_color;
+#[cfg(feature = "webgl1")]
+const VERTEX_SHADER: &str = r#"#version 100
+attribute vec3 vertex_pos;
+attribute vec2 tex_uv;
+attribute vec4 vertex_color;
+
+varying lowp vec4 fragmentColor;
+varying lowp vec2 TexCoord;
+
 uniform mat4 MVP;
-out vec4 fragmentColor;
-out vec2 TexCoord;
 
 void main() {
     gl_Position = MVP * vec4(vertex_pos, 1.0);
@@ -274,14 +277,14 @@ void main() {
 }
 "#;
 
-const FRAGMENT_SHADER: &str = r#"#version 330 core
-in vec4 fragmentColor;
-in vec2 TexCoord;
-
-out vec4 color;
+#[cfg(feature = "webgl1")]
+const FRAGMENT_SHADER: &str = r#"#version 100
+varying lowp vec4 fragmentColor;
+varying lowp vec2 TexCoord;
 
 uniform sampler2D Tex;
 
 void main() {
-    color = fragmentColor * texture(Tex, TexCoord);
-}"#;
+    gl_FragColor = fragmentColor * texture2D(Tex, TexCoord);
+}
+"#;

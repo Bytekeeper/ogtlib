@@ -1,30 +1,31 @@
-use crate::gl::types::*;
-use crate::gl::*;
+use crate::Context;
+use miniquad::error;
+use miniquad::gl::*;
 use std::ffi::CString;
 
 unsafe fn compile_shader(
-    gl: &Gl,
+    context: &Context,
     shader_id: GLuint,
     shader: &str,
     shader_type: &str,
 ) -> Result<(), String> {
-    let shader = CString::new(shader).expect("Invalid shader code");
-    gl.ShaderSource(shader_id, 1, &shader.as_ptr(), std::ptr::null());
-    gl.CompileShader(shader_id);
+    let len = shader.len();
+    glShaderSource(shader_id, 1, &(shader.as_ptr() as *const i8), &(len as i32));
+    glCompileShader(shader_id);
 
     let mut result: GLint = 0;
-    gl.GetShaderiv(shader_id, COMPILE_STATUS, &mut result);
+    glGetShaderiv(shader_id, GL_COMPILE_STATUS, &mut result);
     let mut info_log_length: GLint = 0;
-    gl.GetShaderiv(shader_id, INFO_LOG_LENGTH, &mut info_log_length);
-    if info_log_length > 0 {
+    glGetShaderiv(shader_id, GL_INFO_LOG_LENGTH, &mut info_log_length);
+    if result == 0 && info_log_length > 0 {
         let mut shader_error_message: Vec<u8> = Vec::with_capacity(info_log_length as usize);
-        gl.GetShaderInfoLog(
+        glGetShaderInfoLog(
             shader_id,
             info_log_length,
             0 as *mut i32,
             shader_error_message.as_mut_ptr() as *mut i8,
         );
-        shader_error_message.set_len(info_log_length as usize);
+        shader_error_message.set_len(info_log_length as usize - 1);
         return Err(format!(
             "Error in {}-shader: {}",
             shader_type,
@@ -35,29 +36,29 @@ unsafe fn compile_shader(
 }
 
 pub(crate) fn load_shaders(
-    gl: &Gl,
+    context: &Context,
     vertex_shader: &str,
     fragment_shader: &str,
 ) -> Result<GLuint, String> {
     unsafe {
-        let vertex_shader_id = gl.CreateShader(VERTEX_SHADER);
-        let fragment_shader_id = gl.CreateShader(FRAGMENT_SHADER);
+        let vertex_shader_id = glCreateShader(GL_VERTEX_SHADER);
+        let fragment_shader_id = glCreateShader(GL_FRAGMENT_SHADER);
 
-        compile_shader(gl, vertex_shader_id, vertex_shader, "VERTEX")?;
-        compile_shader(gl, fragment_shader_id, fragment_shader, "FRAGMENT")?;
+        compile_shader(context, vertex_shader_id, vertex_shader, "VERTEX")?;
+        compile_shader(context, fragment_shader_id, fragment_shader, "FRAGMENT")?;
 
-        let program_id = gl.CreateProgram();
-        gl.AttachShader(program_id, vertex_shader_id);
-        gl.AttachShader(program_id, fragment_shader_id);
-        gl.LinkProgram(program_id);
+        let program_id = glCreateProgram();
+        glAttachShader(program_id, vertex_shader_id);
+        glAttachShader(program_id, fragment_shader_id);
+        glLinkProgram(program_id);
 
         let mut result: GLint = 0;
-        gl.GetProgramiv(program_id, LINK_STATUS, &mut result);
+        glGetProgramiv(program_id, GL_LINK_STATUS, &mut result);
         let mut info_log_length = 0;
-        gl.GetProgramiv(program_id, INFO_LOG_LENGTH, &mut info_log_length);
-        if info_log_length > 0 {
+        glGetProgramiv(program_id, GL_INFO_LOG_LENGTH, &mut info_log_length);
+        if result == 0 && info_log_length > 0 {
             let mut program_error_message: Vec<u8> = Vec::with_capacity(info_log_length as usize);
-            gl.GetProgramInfoLog(
+            glGetProgramInfoLog(
                 program_id,
                 info_log_length,
                 0 as *mut i32,
@@ -69,11 +70,6 @@ pub(crate) fn load_shaders(
             );
         }
 
-        gl.DetachShader(program_id, vertex_shader_id);
-        gl.DetachShader(program_id, fragment_shader_id);
-
-        gl.DeleteShader(vertex_shader_id);
-        gl.DeleteShader(fragment_shader_id);
         Ok(program_id)
     }
 }
