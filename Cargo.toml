@@ -1,18 +1,28 @@
 [package]
-name = "opengl_test"
+name = "ogt"
 version = "0.1.0"
 edition = "2021"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
+[features]
+default = ["webgl1"]
+webgl1 = []
+
 [dependencies]
-winit = "0.25.0"
 glam = "0.20"
 memoffset = "0.6"
-image = "0.23"
-glutin = "0.27"
-rand_xorshift = "0.3"
-rand = "0.8"
+image = {version = "0.23", default-features = false, features = ["png", "jpeg"]}
+miniquad = {version = "0.3.0-alpha.37", features = ["log-impl"]}
+quad-rand = "0.2.1"
+fontdue = "0.6"
 
-[build-dependencies]
-gl_generator = "0.14.0"
+[target.'cfg(target_family = "wasm")'.dependencies]
+wee_alloc = "0.4"
+
+[dev-dependencies]
+imageproc = "0.22"
+
+[profile.release-lto]
+inherits = "release"
+lto = true

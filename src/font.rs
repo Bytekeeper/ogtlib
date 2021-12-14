@@ -1,7 +1,7 @@
 use crate::rect_pack::*;
 use crate::sprite_batch::*;
 use crate::texture::*;
-use crate::Context;
+use crate::{Color, Context};
 use fontdue as fd;
 use glam::Vec2;
 use image::{ColorType, Rgba, RgbaImage};
@@ -83,7 +83,12 @@ mod test {
 
     #[test]
     fn test() {
-        Font::from_font(&Context {}, include_bytes!("../Hack-Regular.ttf"), 20.0);
-        panic!()
+        Font::from_font(
+            &Context {
+                screen_size: (10, 10),
+            },
+            include_bytes!("../Hack-Regular.ttf"),
+            20.0,
+        );
     }
 }

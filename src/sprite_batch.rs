@@ -1,5 +1,5 @@
 use crate::texture::*;
-use crate::Context;
+use crate::{Color, Context};
 use glam::f32::*;
 use memoffset::*;
 use miniquad::gl::*;
@@ -50,15 +50,6 @@ impl Transform2D for Affine2 {
         ]
         .map(|v| self.transform_point2(v))
         .map(|p| vec3(p.x + origin.x, p.y + origin.y, 0.0))
-    }
-}
-
-#[derive(Clone, Copy)]
-pub struct Color([u8; 4]);
-
-impl Color {
-    pub fn rgb(r: u8, g: u8, b: u8) -> Self {
-        Color([r, g, b, 255])
     }
 }
 
@@ -171,7 +162,7 @@ impl SpriteBatch {
         let shader_id =
             crate::shader::load_shaders(&context, VERTEX_SHADER, FRAGMENT_SHADER).unwrap();
         let matrix_id = unsafe {
-            let mvp = CString::new("MVP").unwrap();
+            let mvp = CString::new("viewProjectionMatrix").unwrap();
             glGetUniformLocation(shader_id, mvp.as_ptr())
         };
         let array_buffer_data = Vec::with_capacity(max as usize * 4);
@@ -266,25 +257,25 @@ attribute vec2 tex_uv;
 attribute vec4 vertex_color;
 
 varying lowp vec4 fragmentColor;
-varying lowp vec2 TexCoord;
+varying lowp vec2 texCoord;
 
-uniform mat4 MVP;
+uniform mat4 viewProjectionMatrix;
 
 void main() {
-    gl_Position = MVP * vec4(vertex_pos, 1.0);
+    gl_Position = viewProjectionMatrix * vec4(vertex_pos, 1.0);
     fragmentColor = vertex_color;
-    TexCoord = tex_uv;
+    texCoord = tex_uv;
 }
 "#;
 
 #[cfg(feature = "webgl1")]
 const FRAGMENT_SHADER: &str = r#"#version 100
 varying lowp vec4 fragmentColor;
-varying lowp vec2 TexCoord;
+varying lowp vec2 texCoord;
 
 uniform sampler2D Tex;
 
 void main() {
-    gl_FragColor = fragmentColor * texture2D(Tex, TexCoord);
+    gl_FragColor = fragmentColor * texture2D(Tex, texCoord);
 }
 "#;

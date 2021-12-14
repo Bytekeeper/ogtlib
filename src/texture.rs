@@ -67,8 +67,6 @@ impl<'a> TextureBuilder<'a> {
         unsafe {
             glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, self.mag_filter);
             glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, self.min_filter);
-            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE as i32);
-            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE as i32);
 
             glTexImage2D(
                 GL_TEXTURE_2D,
@@ -81,7 +79,12 @@ impl<'a> TextureBuilder<'a> {
                 GL_UNSIGNED_BYTE,
                 self.data.as_ptr() as *const GLvoid,
             );
-            glGenerateMipmap(GL_TEXTURE_2D);
+            if self.width.is_power_of_two() && self.height.is_power_of_two() {
+                glGenerateMipmap(GL_TEXTURE_2D);
+            } else {
+                glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE as i32);
+                glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE as i32);
+            }
         }
         texture
     }
