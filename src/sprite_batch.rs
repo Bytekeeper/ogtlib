@@ -65,6 +65,8 @@ pub struct SpriteBatch {
     max_sprites: u16,
     sprite_count: u16,
     vertex_array_id: GLuint,
+    array_buffer_id: GLuint,
+    element_buffer_id: GLuint,
     array_buffer_data: Vec<Vertex>,
     shader_id: GLuint,
     texture: Option<Texture>,
@@ -87,7 +89,8 @@ impl SpriteBatch {
                 self.model_view_projection.to_cols_array().as_ptr(),
             );
             glBindVertexArray(self.vertex_array_id);
-            // glBindBuffer(GL_ARRAY_BUFFER, self.array_buffer_id);
+            glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, self.element_buffer_id);
+            glBindBuffer(GL_ARRAY_BUFFER, self.array_buffer_id);
             // According to https://thothonegan.tumblr.com/post/135193767243/glbuffersubdata-vs-glbufferdata
             // this is better as the GPU can work on the buffer without blocking
             glBufferData(
@@ -232,6 +235,8 @@ impl SpriteBatch {
             max_sprites: max,
             sprite_count: 0,
             vertex_array_id,
+            array_buffer_id,
+            element_buffer_id,
             array_buffer_data,
             shader_id,
             texture: None,

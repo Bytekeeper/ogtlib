@@ -7,6 +7,7 @@ use std::rc::Rc;
 
 struct Stage {
     sprite_batch: SpriteBatch,
+    shape_batch: ShapeBatch,
     font: Font,
     bunnies: Vec<Bunny>,
     last_time: f64,
@@ -55,34 +56,47 @@ impl Application for Stage {
         }
 
         unsafe {
-            let mvp = Mat4::orthographic_rh_gl(0.0, width, 0.0, height, -1.0, 1.0);
             glViewport(0, 0, width as i32, height as i32);
             glClearColor(0.0, 0.0, 0.4, 0.0);
             glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-            self.sprite_batch.set_model_view_projection_matrix(mvp);
-
-            self.sprite_batch.set_texture(self.tex_bunny.clone());
-            for bunny in self.bunnies.iter() {
-                self.sprite_batch.add(
-                    ctx,
-                    Region {
-                        top_left: [0.0, 0.0],
-                        bottom_right: [self.tex_bunny.width as f32, self.tex_bunny.height as f32],
-                    },
-                    bunny.tint,
-                    vec2(13.0, 19.0),
-                    vec2(bunny.x, bunny.y), // Affine2::from_angle_translation(bunny.rot, vec2(bunny.x, bunny.y)),
-                );
-            }
-            self.sprite_batch.draw(ctx);
-            self.font.draw_text(
-                ctx,
-                &mut self.sprite_batch,
-                &format!("FPS: {:.2}, #b: {}", 1.0 / delta, self.bunnies.len()),
-                vec2(20.0, 20.0),
-            );
-            self.sprite_batch.draw(ctx);
         }
+        let mvp = Mat4::orthographic_rh_gl(0.0, width, 0.0, height, -1.0, 1.0);
+        self.sprite_batch.set_model_view_projection_matrix(mvp);
+        self.shape_batch.set_model_view_projection_matrix(mvp);
+
+        self.sprite_batch.set_texture(self.tex_bunny.clone());
+        for bunny in self.bunnies.iter() {
+            self.sprite_batch.add(
+                ctx,
+                Region {
+                    top_left: [0.0, 0.0],
+                    bottom_right: [self.tex_bunny.width as f32, self.tex_bunny.height as f32],
+                },
+                bunny.tint,
+                vec2(13.0, 19.0),
+                vec2(bunny.x, bunny.y), // Affine2::from_angle_translation(bunny.rot, vec2(bunny.x, bunny.y)),
+            );
+        }
+        self.sprite_batch.draw(ctx);
+        self.font.draw_text(
+            ctx,
+            &mut self.sprite_batch,
+            &format!("FPS: {:.2}, #b: {}", 1.0 / delta, self.bunnies.len()),
+            vec2(20.0, 20.0),
+        );
+        self.sprite_batch.draw(ctx);
+        self.shape_batch.add_triangle(
+            ctx,
+            vec2(10.0, 10.0),
+            vec2(20.0, 10.0),
+            vec2(15.0, 15.0),
+            WHITE,
+        );
+        self.shape_batch
+            .add_line(ctx, vec2(10.0, 100.0), vec2(150.0, 300.0), 20.0, RED);
+        self.shape_batch
+            .add_rect(ctx, vec2(15.0, 110.0), vec2(140.0, 290.0), 5.0, YELLOW);
+        self.shape_batch.draw(ctx);
     }
 }
 struct Bunny {
@@ -134,6 +148,7 @@ fn main() {
 
         Stage {
             sprite_batch,
+            shape_batch: ShapeBatch::new(ctx),
             bunnies,
             last_time: date::now(),
             font: Font::from_font(ctx, include_bytes!("Hack-Regular.ttf"), 32.0),

@@ -3,6 +3,7 @@ use miniquad::gl::*;
 pub use miniquad::MouseButton;
 use miniquad::{conf, date, start, EventHandler, UserData};
 use quad_rand as rnd;
+pub use shape_batch::*;
 pub use sprite_batch::*;
 pub use texture::*;
 
@@ -21,8 +22,12 @@ mod texture;
 #[derive(Clone, Copy)]
 pub struct Color([u8; 4]);
 
+pub const WHITE: Color = Color::rgb(255, 255, 255);
+pub const RED: Color = Color::rgb(255, 0, 0);
+pub const YELLOW: Color = Color::rgb(255, 255, 0);
+
 impl Color {
-    pub fn rgb(r: u8, g: u8, b: u8) -> Self {
+    pub const fn rgb(r: u8, g: u8, b: u8) -> Self {
         Color([r, g, b, 255])
     }
 }
