@@ -112,6 +112,83 @@ impl ShapeBatch {
         );
     }
 
+    pub fn add_filled_rect(
+        &mut self,
+        context: &Context,
+        top_left: Vec2,
+        bottom_right: Vec2,
+        color: Color,
+    ) {
+        self.triangles(
+            context,
+            [
+                (top_left, color),
+                (vec2(bottom_right.x, top_left.y), color),
+                (bottom_right, color),
+                (bottom_right, color),
+                (vec2(top_left.x, bottom_right.y), color),
+                (top_left, color),
+            ],
+        );
+    }
+
+    pub fn add_circle(
+        &mut self,
+        context: &Context,
+        center: Vec2,
+        radius: f32,
+        thickness: f32,
+        segments: usize,
+        start: f32,
+        end: f32,
+        color: Color,
+    ) {
+        let inner = vec2(radius - thickness, 0.0);
+        let outer = vec2(radius + thickness, 0.0);
+        let transform = Mat2::from_angle(start);
+        let mut last_outer = center + transform.mul_vec2(outer);
+        let mut last_inner = center + transform.mul_vec2(inner);
+        for i in 0..=segments {
+            let transform = Mat2::from_angle(start + i as f32 * (end - start) / segments as f32);
+            let next_outer = center + transform.mul_vec2(outer);
+            let next_inner = center + transform.mul_vec2(inner);
+            self.triangles(
+                context,
+                [
+                    (last_outer, color),
+                    (next_outer, color),
+                    (next_inner, color),
+                    (next_inner, color),
+                    (last_inner, color),
+                    (last_outer, color),
+                ],
+            );
+            last_outer = next_outer;
+            last_inner = next_inner;
+        }
+    }
+
+    pub fn add_circle_filled(
+        &mut self,
+        context: &Context,
+        center: Vec2,
+        radius: f32,
+        segments: usize,
+        start: f32,
+        end: f32,
+        color: Color,
+    ) {
+        let boundary = vec2(radius, 0.0);
+        let transform = Mat2::from_angle(start);
+        let mut last = center + transform.mul_vec2(boundary);
+        for i in 0..=segments {
+            let transform = Mat2::from_angle(start + i as f32 * (end - start) / segments as f32);
+            let next = center + transform.mul_vec2(boundary);
+            self.triangles(context, [(center, color), (last, color), (next, color)]);
+            last = next;
+        }
+    }
+
     pub fn draw(&mut self, context: &Context) {
         unsafe {
             glUseProgram(self.shader_id);

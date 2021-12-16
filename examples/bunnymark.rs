@@ -95,7 +95,28 @@ impl Application for Stage {
         self.shape_batch
             .add_line(ctx, vec2(10.0, 100.0), vec2(150.0, 300.0), 20.0, RED);
         self.shape_batch
+            .add_filled_rect(ctx, vec2(150.0, 110.0), vec2(300.0, 290.0), YELLOW);
+        self.shape_batch
             .add_rect(ctx, vec2(15.0, 110.0), vec2(140.0, 290.0), 5.0, YELLOW);
+        self.shape_batch.add_circle(
+            ctx,
+            vec2(50.0, 150.0),
+            60.0,
+            5.0,
+            4,
+            0.0,
+            std::f32::consts::PI * 1.0,
+            WHITE,
+        );
+        self.shape_batch.add_circle_filled(
+            ctx,
+            vec2(450.0, 150.0),
+            50.0,
+            30,
+            0.3,
+            std::f32::consts::PI * 1.8,
+            WHITE,
+        );
         self.shape_batch.draw(ctx);
     }
 }
