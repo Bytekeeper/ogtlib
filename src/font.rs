@@ -3,9 +3,8 @@ use crate::sprite_batch::*;
 use crate::texture::*;
 use crate::{Color, Context};
 use fontdue as fd;
-use glam::Vec2;
+use glam::{vec2, Vec2};
 use image::{ColorType, Rgba, RgbaImage};
-use std::rc::Rc;
 
 struct Glyph {
     metrics: fd::Metrics,
@@ -59,7 +58,14 @@ impl Font {
         }
     }
 
-    pub fn draw_text(&self, context: &Context, batch: &mut SpriteBatch, txt: &str, pos: Vec2) {
+    pub fn draw_text(
+        &self,
+        context: &Context,
+        batch: &mut SpriteBatch,
+        txt: &str,
+        pos: Vec2,
+        color: Color,
+    ) {
         batch.set_texture(self.texture.clone());
         let mut c_pos = pos;
         for c in txt.chars() {
@@ -67,13 +73,27 @@ impl Font {
             batch.add(
                 context,
                 glyph.sprite,
-                Color::rgb(255, 255, 255),
+                color,
                 Vec2::ZERO,
-                c_pos,
+                c_pos + vec2(glyph.metrics.xmin as f32, glyph.metrics.ymin as f32),
             );
             c_pos.x += glyph.metrics.advance_width;
             c_pos.y += glyph.metrics.advance_height;
         }
+    }
+
+    pub fn measure(&self, txt: &str) -> Vec2 {
+        let mut width = 0.0;
+        let mut height = 0.0;
+        let mut max_width: f32 = 0.0;
+        let mut max_height: f32 = 0.0;
+        for g in txt.chars().map(|c| &self.glyphs[c as usize - 32]) {
+            max_width = max_width.max(width + g.metrics.width as f32);
+            max_height = max_height.max(height + g.metrics.height as f32);
+            width += g.metrics.advance_width;
+            height += g.metrics.advance_height;
+        }
+        vec2(max_width, max_height)
     }
 }
 

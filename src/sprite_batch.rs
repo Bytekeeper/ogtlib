@@ -80,6 +80,9 @@ impl SpriteBatch {
     }
 
     pub fn draw(&mut self, context: &Context) {
+        if self.sprite_count == 0 {
+            return;
+        }
         unsafe {
             glUseProgram(self.shader_id);
             glUniformMatrix4fv(
@@ -246,7 +249,10 @@ impl SpriteBatch {
     }
 
     pub fn set_texture(&mut self, texture: Texture) {
-        assert_eq!(self.sprite_count, 0, "Texture must be set before drawing");
+        assert!(
+            self.texture.as_ref() == Some(&texture) || self.sprite_count == 0,
+            "Texture must be set before drawing (did you forget to actually call draw?)"
+        );
         self.texture = Some(texture);
     }
 

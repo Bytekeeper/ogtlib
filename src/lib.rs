@@ -6,6 +6,7 @@ use quad_rand as rnd;
 pub use shape_batch::*;
 pub use sprite_batch::*;
 pub use texture::*;
+pub use ui::*;
 
 pub use glam as math;
 use math::*;
@@ -18,17 +19,24 @@ mod shader;
 mod shape_batch;
 mod sprite_batch;
 mod texture;
+mod ui;
 
 #[derive(Clone, Copy)]
 pub struct Color([u8; 4]);
 
-pub const WHITE: Color = Color::rgb(255, 255, 255);
+pub const BLACK: Color = Color::rgb(0, 0, 0);
+pub const BLUE: Color = Color::rgb(0, 0, 255);
 pub const RED: Color = Color::rgb(255, 0, 0);
 pub const YELLOW: Color = Color::rgb(255, 255, 0);
+pub const WHITE: Color = Color::rgb(255, 255, 255);
 
 impl Color {
     pub const fn rgb(r: u8, g: u8, b: u8) -> Self {
         Color([r, g, b, 255])
+    }
+
+    pub const fn rgba(r: u8, g: u8, b: u8, a: u8) -> Self {
+        Color([r, g, b, a])
     }
 }
 
@@ -54,6 +62,10 @@ pub struct Context {
 impl Context {
     pub fn screen_size(&self) -> UVec2 {
         self.screen_size
+    }
+
+    pub fn mouse_position(&self) -> UVec2 {
+        self.mouse_position
     }
 
     fn mouse_button_state(&self, button: MouseButton) -> &MouseButtonState {
@@ -84,12 +96,13 @@ impl Context {
 }
 
 pub trait Application {
-    fn render(&mut self, context: &Context) {}
+    fn render(&mut self, context: &Context, delta: f32) {}
 }
 
 struct Stage {
     app: Box<dyn Application>,
     context: Context,
+    last_time: f64,
 }
 
 impl EventHandler for Stage {
@@ -129,7 +142,11 @@ impl EventHandler for Stage {
     fn update(&mut self, ctx: &mut miniquad::Context) {
         let (w, h) = ctx.screen_size();
         self.context.screen_size = uvec2(w as u32, h as u32);
-        self.app.render(&self.context);
+        let now = date::now();
+        let delta = (now - self.last_time) as f32;
+        self.last_time = now;
+
+        self.app.render(&self.context, delta);
 
         self.context.left.pressed = false;
         self.context.right.pressed = false;
@@ -144,6 +161,7 @@ pub fn go<A: 'static + Application, F: 'static + FnOnce(&Context) -> A>(app_crea
             Stage {
                 app: Box::new(app_creator(&context)),
                 context,
+                last_time: date::now(),
             },
             ctx,
         )

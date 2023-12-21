@@ -18,6 +18,12 @@ pub struct Texture {
     pub height: u32,
 }
 
+impl PartialEq for Texture {
+    fn eq(&self, other: &Self) -> bool {
+        self.texture_id == other.texture_id
+    }
+}
+
 impl Texture {
     pub fn bind(&self, ctx: &Context) {
         unsafe { glBindTexture(GL_TEXTURE_2D, self.texture_id) }

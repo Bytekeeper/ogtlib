@@ -168,7 +168,7 @@ impl ShapeBatch {
         }
     }
 
-    pub fn add_circle_filled(
+    pub fn add_filled_circle(
         &mut self,
         context: &Context,
         center: Vec2,

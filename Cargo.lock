@@ -33,9 +33,9 @@ checksum = "cdb031dd78e28731d87d56cc8ffef4a8f36ca26c38fe2de700543e627f8a464a"
 
 [[package]]
 name = "bitflags"
-version = "1.3.2"
+version = "1.2.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "bef38d45163c2f1dde094a7dfd33ccf595c92905c8f8f4fdc18d06fb1037718a"
+checksum = "cf1de2fe8c75bc145a2f577add951f8134889b4795d47466a54a5c846d691693"
 
 [[package]]
 name = "bytemuck"
@@ -299,9 +299,9 @@ checksum = "8452105ba047068f40ff7093dd1d9da90898e63dd61736462e9cdda6a90ad3c3"
 
 [[package]]
 name = "miniquad"
-version = "0.3.0-alpha.37"
+version = "0.3.0-alpha.43"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "6793a3ef846953fc7c01302093abf8749be22742c63db05c66ef0a2c889a7fbb"
+checksum = "4b1edf0ba64f267a4cc0ba453d95da072bfa078d755917e1411e4dc20b729da8"
 dependencies = [
  "sapp-android",
  "sapp-darwin",
@@ -580,9 +580,9 @@ dependencies = [
 
 [[package]]
 name = "sapp-android"
-version = "0.1.8"
+version = "0.1.10"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "5a4a81f462ba2783213978528560aa138adf2f94da1ac940c1b5c854c03e1724"
+checksum = "9c0d0e6f562c01c533f693ac9c045d69cbeab24d2e16caaaa0e67d06ae6e0940"
 dependencies = [
  "libc",
  "ndk-sys",
@@ -590,9 +590,9 @@ dependencies = [
 
 [[package]]
 name = "sapp-darwin"
-version = "0.1.6"
+version = "0.1.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "0310e2445f307468aa13f1cde94d6fba6b8fd329afbb642dedbe3faf1a145f31"
+checksum = "fd874867dc35d9a42bba830cee0210702438082c7d6a39132ab420e6c20a5809"
 dependencies = [
  "cc",
 ]
@@ -632,9 +632,9 @@ checksum = "00e859e8645a3bcb85aecd40bab883438e4105f21b21bccbeac2348760f508bb"
 
 [[package]]
 name = "sapp-windows"
-version = "0.2.18"
+version = "0.2.19"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d8faec983cb54ce5e9529815fc0aae6c36bab9fba9cd0ae5590dfa17bc0719fa"
+checksum = "f3e9a4ab4682752ffcbbacf87b44c75373479331dfe408432280d305e0563c9c"
 dependencies = [
  "winapi",
 ]
