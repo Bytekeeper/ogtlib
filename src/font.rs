@@ -3,7 +3,7 @@ use crate::sprite_batch::*;
 use crate::texture::*;
 use crate::{Color, Context};
 use fontdue as fd;
-use glam::{vec2, Vec2};
+use glam::{uvec2, vec2, Vec2};
 use image::{ColorType, Rgba, RgbaImage};
 
 struct Glyph {
@@ -25,15 +25,15 @@ impl Font {
             .collect();
         let mut rects: Vec<_> = rasterized_chars
             .iter()
-            .map(|c| Rect::wh(c.0.width as u32, c.0.height as u32))
+            .map(|c| Rect::wh(c.0.width as u32 + 2, c.0.height as u32 + 2))
             .collect();
         let dim = pack(&mut rects, 4096).unwrap();
         let mut img = RgbaImage::new(dim.0, dim.1);
         for (c, r) in rasterized_chars.iter().zip(rects.iter()) {
             for (p, &v) in c.1.iter().enumerate() {
                 img.put_pixel(
-                    r.x + p as u32 % c.0.width as u32,
-                    r.y + p as u32 / c.0.width as u32,
+                    r.x + p as u32 % c.0.width as u32 + 1,
+                    r.y + p as u32 / c.0.width as u32 + 1,
                     Rgba([255, 255, 255, v]),
                 );
             }
@@ -49,8 +49,8 @@ impl Font {
                 .map(|(c, r)| Glyph {
                     metrics: c.0,
                     sprite: Region {
-                        top_left: [r.x as f32, r.y as f32],
-                        bottom_right: [(r.x + r.width) as f32, (r.y + r.height) as f32],
+                        top_left: [r.x as f32 + 1.0, r.y as f32 + 1.0],
+                        bottom_right: [(r.x + r.width - 1) as f32, (r.y + r.height - 1) as f32],
                     },
                 })
                 .collect(),
@@ -82,18 +82,23 @@ impl Font {
         }
     }
 
-    pub fn measure(&self, txt: &str) -> Vec2 {
+    pub fn measure(&self, txt: &str) -> (Vec2, Vec2) {
         let mut width = 0.0;
         let mut height = 0.0;
         let mut max_width: f32 = 0.0;
         let mut max_height: f32 = 0.0;
+        let mut min_width: f32 = 0.0;
+        let mut min_height: f32 = 0.0;
         for g in txt.chars().map(|c| &self.glyphs[c as usize - 32]) {
-            max_width = max_width.max(width + g.metrics.width as f32);
-            max_height = max_height.max(height + g.metrics.height as f32);
-            width += g.metrics.advance_width;
-            height += g.metrics.advance_height;
+            let metrics = &g.metrics;
+            min_width = min_width.min(width + metrics.xmin as f32);
+            min_height = min_height.min(height + metrics.ymin as f32);
+            max_width = max_width.max(width + metrics.xmin as f32 + metrics.width as f32);
+            max_height = max_height.max(height + metrics.ymin as f32 + metrics.height as f32);
+            width += metrics.advance_width;
+            height += metrics.advance_height;
         }
-        vec2(max_width, max_height)
+        (vec2(min_width, min_height), vec2(max_width, max_height))
     }
 }
 
@@ -105,9 +110,10 @@ mod test {
     fn test() {
         Font::from_font(
             &Context {
-                screen_size: (10, 10),
+                screen_size: uvec2(10, 10),
+                ..Default::default()
             },
-            include_bytes!("../Hack-Regular.ttf"),
+            include_bytes!("../examples/Hack-Regular.ttf"),
             20.0,
         );
     }

@@ -1,8 +1,7 @@
 pub use font::*;
-use miniquad::gl::*;
+use miniquad::window::screen_size;
 pub use miniquad::MouseButton;
-use miniquad::{conf, date, start, EventHandler, UserData};
-use quad_rand as rnd;
+use miniquad::{conf, date, start, EventHandler};
 pub use shape_batch::*;
 pub use sprite_batch::*;
 pub use texture::*;
@@ -10,8 +9,7 @@ pub use ui::*;
 
 pub use glam as math;
 use math::*;
-use std::ffi::CString;
-use std::mem::{size_of, size_of_val};
+pub use miniquad::gl;
 
 mod font;
 mod rect_pack;
@@ -26,6 +24,10 @@ pub struct Color([u8; 4]);
 
 pub const BLACK: Color = Color::rgb(0, 0, 0);
 pub const BLUE: Color = Color::rgb(0, 0, 255);
+pub const GREEN: Color = Color::rgb(0, 255, 0);
+pub const LIGHT_BLUE: Color = Color::rgb(80, 80, 255);
+pub const LIGHT_GRAY: Color = Color::rgb(200, 200, 200);
+pub const LIGHT_RED: Color = Color::rgb(255, 80, 80);
 pub const RED: Color = Color::rgb(255, 0, 0);
 pub const YELLOW: Color = Color::rgb(255, 255, 0);
 pub const WHITE: Color = Color::rgb(255, 255, 255);
@@ -54,6 +56,7 @@ struct MouseButtonState {
 pub struct Context {
     screen_size: UVec2,
     mouse_position: UVec2,
+    mouse_wheel: Vec2,
     left: MouseButtonState,
     right: MouseButtonState,
     middle: MouseButtonState,
@@ -86,6 +89,10 @@ impl Context {
         }
     }
 
+    pub fn mouse_wheel(&self) -> Vec2 {
+        self.mouse_wheel
+    }
+
     pub fn is_mouse_button_pressed(&self, button: MouseButton) -> bool {
         self.mouse_button_state(button).pressed
     }
@@ -106,41 +113,33 @@ struct Stage {
 }
 
 impl EventHandler for Stage {
-    fn mouse_motion_event(&mut self, _ctx: &mut miniquad::Context, x: f32, y: f32) {
+    fn mouse_motion_event(&mut self, x: f32, y: f32) {
         self.context.mouse_position = uvec2(x as u32, y as u32);
     }
 
-    fn mouse_button_down_event(
-        &mut self,
-        _ctx: &mut miniquad::Context,
-        btn: MouseButton,
-        x: f32,
-        y: f32,
-    ) {
+    fn mouse_button_down_event(&mut self, btn: MouseButton, x: f32, y: f32) {
         self.context.mouse_position = uvec2(x as u32, y as u32);
         let button_state = self.context.mouse_button_state_mut(btn);
         button_state.down = true;
         button_state.pressed = true;
     }
 
-    fn mouse_button_up_event(
-        &mut self,
-        _ctx: &mut miniquad::Context,
-        btn: MouseButton,
-        x: f32,
-        y: f32,
-    ) {
+    fn mouse_button_up_event(&mut self, btn: MouseButton, x: f32, y: f32) {
         self.context.mouse_position = uvec2(x as u32, y as u32);
         let button_state = self.context.mouse_button_state_mut(btn);
         button_state.down = false;
     }
 
-    fn draw(&mut self, _ctx: &mut miniquad::Context) {
+    fn mouse_wheel_event(&mut self, x: f32, y: f32) {
+        self.context.mouse_wheel = vec2(x, y);
+    }
+
+    fn draw(&mut self) {
         // NOOP
     }
 
-    fn update(&mut self, ctx: &mut miniquad::Context) {
-        let (w, h) = ctx.screen_size();
+    fn update(&mut self) {
+        let (w, h) = screen_size();
         self.context.screen_size = uvec2(w as u32, h as u32);
         let now = date::now();
         let delta = (now - self.last_time) as f32;
@@ -148,6 +147,7 @@ impl EventHandler for Stage {
 
         self.app.render(&self.context, delta);
 
+        self.context.mouse_wheel = Vec2::ZERO;
         self.context.left.pressed = false;
         self.context.right.pressed = false;
         self.context.middle.pressed = false;
@@ -155,15 +155,18 @@ impl EventHandler for Stage {
 }
 
 pub fn go<A: 'static + Application, F: 'static + FnOnce(&Context) -> A>(app_creator: F) {
-    start(conf::Conf::default(), |ctx| {
-        let context = Context::default();
-        UserData::owning(
-            Stage {
+    start(
+        conf::Conf {
+            sample_count: 4,
+            ..conf::Conf::default()
+        },
+        || {
+            let context = Context::default();
+            Box::new(Stage {
                 app: Box::new(app_creator(&context)),
                 context,
                 last_time: date::now(),
-            },
-            ctx,
-        )
-    });
+            })
+        },
+    );
 }

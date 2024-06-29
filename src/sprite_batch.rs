@@ -3,10 +3,8 @@ use crate::{Color, Context};
 use glam::f32::*;
 use memoffset::*;
 use miniquad::gl::*;
-use std::borrow::Borrow;
 use std::ffi::CString;
 use std::mem::{size_of, size_of_val};
-use std::rc::Rc;
 
 pub trait Transform2D {
     fn transform(&self, origin: Vec2, region: Region) -> [Vec3; 4];
@@ -40,16 +38,15 @@ impl Transform2D for Vec3 {
 
 impl Transform2D for Affine2 {
     fn transform(&self, origin: Vec2, region: Region) -> [Vec3; 4] {
-        let right = region.bottom_right[0] - region.top_left[0] - origin.x;
-        let bottom = region.bottom_right[1] - region.top_left[1] - origin.y;
+        let right = region.bottom_right[0] - region.top_left[0];
+        let bottom = region.bottom_right[1] - region.top_left[1];
         [
-            vec2(-origin.x, -origin.y),
-            vec2(right, -origin.y),
+            vec2(0.0, 0.0),
+            vec2(right, 0.0),
             vec2(right, bottom),
-            vec2(-origin.x, bottom),
+            vec2(0.0, bottom),
         ]
-        .map(|v| self.transform_point2(v))
-        .map(|p| vec3(p.x + origin.x, p.y + origin.y, 0.0))
+        .map(|v| (self.transform_point2(v - origin) + origin).extend(0.0))
     }
 }
 
@@ -115,7 +112,6 @@ impl SpriteBatch {
             self.texture
                 .as_ref()
                 .expect("Texture must be set on SpriteBatch")
-                .borrow()
                 .bind(context);
             glDrawElements(
                 GL_TRIANGLES,
@@ -142,25 +138,26 @@ impl SpriteBatch {
         let texture_data = &self
             .texture
             .as_ref()
-            .expect("Texture must be set on SpriteBatch")
-            .borrow();
+            .expect("Texture must be set on SpriteBatch");
         let (width, height) = (texture_data.width as f32, texture_data.height as f32);
         let vertices = transform.transform(origin, sprite);
-        for (pos, uv) in vertices.iter().zip([
-            [sprite.top_left[0] / width, sprite.bottom_right[1] / height],
-            [
-                sprite.bottom_right[0] / width,
-                sprite.bottom_right[1] / height,
-            ],
-            [sprite.bottom_right[0] / width, sprite.top_left[1] / height],
-            [sprite.top_left[0] / width, sprite.top_left[1] / height],
-        ]) {
-            self.array_buffer_data.push(Vertex {
+        let to_append = vertices
+            .iter()
+            .zip([
+                [sprite.top_left[0] / width, sprite.bottom_right[1] / height],
+                [
+                    sprite.bottom_right[0] / width,
+                    sprite.bottom_right[1] / height,
+                ],
+                [sprite.bottom_right[0] / width, sprite.top_left[1] / height],
+                [sprite.top_left[0] / width, sprite.top_left[1] / height],
+            ])
+            .map(|(pos, uv)| Vertex {
                 pos: [pos.x, pos.y, pos.z],
                 uv,
                 color: color.0,
             });
-        }
+        self.array_buffer_data.extend(to_append);
         self.sprite_count += 1;
     }
 
@@ -290,3 +287,13 @@ void main() {
     gl_FragColor = fragmentColor * texture2D(Tex, texCoord);
 }
 "#;
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn function_name_test() {
+        assert_eq!(size_of::<Vertex>(), 24);
+    }
+}
