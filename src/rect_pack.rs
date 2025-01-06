@@ -64,7 +64,7 @@ fn pack_limited(
             .iter()
             .enumerate()
             .rev()
-            .filter(|(i, s)| s.width >= update.width && s.height >= update.height)
+            .filter(|(_, s)| s.width >= update.width && s.height >= update.height)
             .next()
         {
             update.x = space.x;

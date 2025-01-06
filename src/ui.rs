@@ -1,9 +1,7 @@
 use crate::math::*;
 use crate::*;
-use ahash::AHashMap;
 use std::borrow::Borrow;
 use std::cell::Cell;
-use std::sync::Arc;
 
 pub struct Ui {
     shapes: ShapeBatch,
@@ -20,22 +18,6 @@ pub trait LayoutElement {
     fn layout(&self, ui: &Ui, xy: Vec2) {
         let dim = self.prefered_dimensions(ui);
         self.set_rect(ui, xy, dim);
-    }
-}
-
-pub struct Input<'a> {
-    xy: Cell<Vec2>,
-    wh: Cell<Option<Vec2>>,
-    text: &'a mut str,
-}
-
-impl<'a> Input<'a> {
-    pub fn new(ctx: &Context, text: &'a mut str) -> Self {
-        Self {
-            xy: Cell::new(Vec2::ZERO),
-            wh: Cell::new(None),
-            text,
-        }
     }
 }
 
@@ -56,11 +38,10 @@ impl<S: Borrow<str>> Label<S> {
 }
 
 impl<S: Borrow<str>> LayoutElement for Label<S> {
-    fn render(&self, ctx: &Context, ui: &mut Ui, mouse_pos: Vec2) {
+    fn render(&self, ctx: &Context, ui: &mut Ui, _mouse_pos: Vec2) {
         let dim = ui.font.measure(self.text.borrow());
         let wh = self.wh.get().unwrap_or_else(|| dim.1 - dim.0);
         let xy = self.xy.get();
-        let tr = xy + wh;
         ui.font.draw_text(
             ctx,
             &mut ui.sprites,
@@ -77,7 +58,7 @@ impl<S: Borrow<str>> LayoutElement for Label<S> {
         })
     }
 
-    fn set_rect(&self, ui: &Ui, xy: Vec2, dim: Vec2) {
+    fn set_rect(&self, _ui: &Ui, xy: Vec2, dim: Vec2) {
         self.xy.set(xy);
         self.wh.set(Some(dim));
     }
@@ -119,16 +100,15 @@ impl<'a, T: LayoutElement> LayoutElement for Frame<&'a T> {
     }
 }
 
-pub struct Button<S, U = ()> {
+pub struct Button<S> {
     xy: Cell<Vec2>,
     wh: Cell<Option<Vec2>>,
     padding: Vec2,
     text: S,
     pressed: Cell<bool>,
-    pub user_data: Option<U>,
 }
 
-impl<S: Borrow<str>, U> Button<S, U> {
+impl<S: Borrow<str>> Button<S> {
     pub fn new(text: S) -> Self {
         Self {
             xy: Cell::new(Vec2::ZERO),
@@ -136,7 +116,6 @@ impl<S: Borrow<str>, U> Button<S, U> {
             text: text,
             padding: vec2(20.0, 20.0),
             pressed: Cell::new(false),
-            user_data: None,
         }
     }
 
@@ -147,17 +126,12 @@ impl<S: Borrow<str>, U> Button<S, U> {
         }
     }
 
-    pub fn user_data(mut self, user_data: U) -> Self {
-        self.user_data = Some(user_data);
-        self
-    }
-
-    pub fn clicked(self) -> Option<U> {
-        self.pressed.get().then(|| self.user_data).flatten()
+    pub fn clicked(self) -> bool {
+        self.pressed.get()
     }
 }
 
-impl<S: Borrow<str>, U> LayoutElement for Button<S, U> {
+impl<S: Borrow<str>> LayoutElement for Button<S> {
     fn prefered_dimensions(&self, ui: &Ui) -> Vec2 {
         self.wh.get().unwrap_or_else(|| {
             let dim = ui.font.measure(self.text.borrow());
@@ -165,7 +139,7 @@ impl<S: Borrow<str>, U> LayoutElement for Button<S, U> {
         })
     }
 
-    fn set_rect(&self, ui: &Ui, xy: Vec2, dim: Vec2) {
+    fn set_rect(&self, _ui: &Ui, xy: Vec2, dim: Vec2) {
         self.xy.set(xy);
         self.wh.set(Some(dim));
     }
@@ -206,11 +180,11 @@ pub struct VerticalLayout<T> {
     gap: f32,
 }
 
-impl<'a, T: LayoutElement> LayoutElement for VerticalLayout<&[T]> {
+impl<'a> LayoutElement for VerticalLayout<Vec<&dyn LayoutElement>> {
     fn prefered_dimensions(&self, ui: &Ui) -> Vec2 {
         let mut dim = Vec2::ZERO;
         let mut element_count: usize = 0;
-        for element in self.elements.as_ref() {
+        for element in self.elements.iter() {
             let element_dim = element.prefered_dimensions(ui);
             dim.x = dim.x.max(element_dim.x);
             dim.y += element_dim.y;
@@ -220,7 +194,7 @@ impl<'a, T: LayoutElement> LayoutElement for VerticalLayout<&[T]> {
     }
 
     fn set_rect(&self, ui: &Ui, mut xy: Vec2, dim: Vec2) {
-        for element in self.elements.as_ref() {
+        for element in self.elements.iter() {
             let element_dim = element.prefered_dimensions(ui);
             element.set_rect(ui, xy, vec2(dim.x, element_dim.y));
             xy.y += element_dim.y + self.gap;
@@ -228,7 +202,7 @@ impl<'a, T: LayoutElement> LayoutElement for VerticalLayout<&[T]> {
     }
 
     fn render(&self, ctx: &Context, ui: &mut Ui, mouse_pos: Vec2) {
-        for element in self.elements.as_ref() {
+        for element in self.elements.iter() {
             element.render(ctx, ui, mouse_pos);
         }
     }

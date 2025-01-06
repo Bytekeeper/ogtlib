@@ -258,7 +258,6 @@ impl SpriteBatch {
     }
 }
 
-#[cfg(feature = "webgl1")]
 const VERTEX_SHADER: &str = r#"#version 100
 attribute vec3 vertex_pos;
 attribute vec2 tex_uv;
@@ -276,7 +275,6 @@ void main() {
 }
 "#;
 
-#[cfg(feature = "webgl1")]
 const FRAGMENT_SHADER: &str = r#"#version 100
 varying lowp vec4 fragmentColor;
 varying lowp vec2 texCoord;

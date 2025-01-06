@@ -8,25 +8,32 @@ pub struct Region {
     pub bottom_right: [f32; 2],
 }
 
+#[derive(Eq, PartialEq)]
 struct GLTexture(GLuint);
 
 #[derive(Clone)]
 pub struct Texture {
-    _gl_texture: Rc<GLTexture>,
-    pub(crate) texture_id: GLuint,
+    gl_texture: Rc<GLTexture>,
     pub width: u32,
     pub height: u32,
 }
 
 impl PartialEq for Texture {
     fn eq(&self, other: &Self) -> bool {
-        self.texture_id == other.texture_id
+        self.gl_texture == other.gl_texture
     }
 }
 
 impl Texture {
-    pub fn bind(&self, ctx: &Context) {
-        unsafe { glBindTexture(GL_TEXTURE_2D, self.texture_id) }
+    pub fn bind(&self, _ctx: &Context) {
+        unsafe { glBindTexture(GL_TEXTURE_2D, self.gl_texture.0) }
+    }
+
+    pub fn as_region(&self) -> Region {
+        Region {
+            top_left: [0.0, 0.0],
+            bottom_right: [self.width as f32, self.height as f32],
+        }
     }
 }
 
@@ -63,8 +70,7 @@ impl<'a> TextureBuilder<'a> {
             let mut texture_id = 0;
             glGenTextures(1, &mut texture_id);
             Texture {
-                _gl_texture: Rc::new(GLTexture(texture_id)),
-                texture_id,
+                gl_texture: Rc::new(GLTexture(texture_id)),
                 width: self.width,
                 height: self.height,
             }

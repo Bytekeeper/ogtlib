@@ -1,6 +1,10 @@
+pub use miniquad::error;
+pub use miniquad::fs::load_file;
+pub use miniquad::MouseButton;
+
+pub use assets::*;
 pub use font::*;
 use miniquad::window::screen_size;
-pub use miniquad::MouseButton;
 use miniquad::{conf, date, start, EventHandler};
 pub use shape_batch::*;
 pub use sprite_batch::*;
@@ -9,8 +13,9 @@ pub use ui::*;
 
 pub use glam as math;
 use math::*;
-pub use miniquad::gl;
 
+mod assets;
+mod backend;
 mod font;
 mod rect_pack;
 mod shader;
@@ -63,6 +68,18 @@ pub struct Context {
 }
 
 impl Context {
+    pub(crate) fn configure_blend(&self) {
+        crate::backend::configure_blend();
+    }
+
+    pub fn clear_screen(&self, color: Color) {
+        crate::backend::clear_screen(color);
+    }
+
+    pub fn set_viewport(&self, top_left: IVec2, bottom_right: IVec2) {
+        crate::backend::set_viewport(top_left, bottom_right);
+    }
+
     pub fn screen_size(&self) -> UVec2 {
         self.screen_size
     }
@@ -103,16 +120,16 @@ impl Context {
 }
 
 pub trait Application {
-    fn render(&mut self, context: &Context, delta: f32) {}
+    fn render(&mut self, _context: &Context, _delta: f32) {}
 }
 
-struct Stage {
-    app: Box<dyn Application>,
+struct Stage<A> {
+    app: A,
     context: Context,
     last_time: f64,
 }
 
-impl EventHandler for Stage {
+impl<A: Application> EventHandler for Stage<A> {
     fn mouse_motion_event(&mut self, x: f32, y: f32) {
         self.context.mouse_position = uvec2(x as u32, y as u32);
     }
@@ -162,8 +179,9 @@ pub fn go<A: 'static + Application, F: 'static + FnOnce(&Context) -> A>(app_crea
         },
         || {
             let context = Context::default();
+            context.configure_blend();
             Box::new(Stage {
-                app: Box::new(app_creator(&context)),
+                app: app_creator(&context),
                 context,
                 last_time: date::now(),
             })

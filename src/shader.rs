@@ -1,10 +1,8 @@
 use crate::Context;
-use miniquad::error;
 use miniquad::gl::*;
-use std::ffi::CString;
 
 unsafe fn compile_shader(
-    context: &Context,
+    _context: &Context,
     shader_id: GLuint,
     shader: &str,
     shader_type: &str,
