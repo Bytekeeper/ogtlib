@@ -5,15 +5,17 @@ use crate::{Color, Context};
 use fontdue as fd;
 use glam::{vec2, Vec2};
 use image::{Rgba, RgbaImage};
+use std::rc::Rc;
 
 struct Glyph {
     metrics: fd::Metrics,
     sprite: Region,
 }
 
+#[derive(Clone)]
 pub struct Font {
     texture: Texture,
-    glyphs: Vec<Glyph>,
+    glyphs: Rc<Vec<Glyph>>,
 }
 
 impl Font {
@@ -61,14 +63,15 @@ impl Font {
     }
 }
 
+#[derive(Clone)]
 pub struct LoadedFont {
     //line_metrics: fd::LineMetrics,
-    font: fd::Font,
+    font: Rc<fd::Font>,
 }
 
 impl LoadedFont {
     pub fn from_bytes(data: &[u8]) -> Self {
-        let font = fd::Font::from_bytes(data, fd::FontSettings::default()).unwrap();
+        let font = Rc::new(fd::Font::from_bytes(data, fd::FontSettings::default()).unwrap());
         Self { font }
     }
 
@@ -94,17 +97,19 @@ impl LoadedFont {
         let w = img.width();
         let h = img.height();
         let texture = TextureBuilder::from_bytes(&img.into_raw(), w, h).build(context);
-        let glyphs = rasterized_chars
-            .iter()
-            .zip(rects)
-            .map(|(c, r)| Glyph {
-                metrics: c.0,
-                sprite: Region {
-                    top_left: [r.x as f32 + 1.0, r.y as f32 + 1.0],
-                    bottom_right: [(r.x + r.width - 1) as f32, (r.y + r.height - 1) as f32],
-                },
-            })
-            .collect();
+        let glyphs = Rc::new(
+            rasterized_chars
+                .iter()
+                .zip(rects)
+                .map(|(c, r)| Glyph {
+                    metrics: c.0,
+                    sprite: Region {
+                        top_left: [r.x as f32 + 1.0, r.y as f32 + 1.0],
+                        bottom_right: [(r.x + r.width - 1) as f32, (r.y + r.height - 1) as f32],
+                    },
+                })
+                .collect(),
+        );
         Font { texture, glyphs }
     }
 }

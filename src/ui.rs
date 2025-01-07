@@ -193,11 +193,12 @@ impl<'a> LayoutElement for VerticalLayout<Vec<&dyn LayoutElement>> {
         dim + element_count.saturating_sub(1) as f32 * vec2(0.0, self.gap)
     }
 
-    fn set_rect(&self, ui: &Ui, mut xy: Vec2, dim: Vec2) {
+    fn set_rect(&self, ui: &Ui, xy: Vec2, dim: Vec2) {
+        let mut cp = xy + Vec2::Y * dim.y;
         for element in self.elements.iter() {
             let element_dim = element.prefered_dimensions(ui);
-            element.set_rect(ui, xy, vec2(dim.x, element_dim.y));
-            xy.y += element_dim.y + self.gap;
+            cp.y -= element_dim.y + self.gap;
+            element.set_rect(ui, cp, vec2(dim.x, element_dim.y));
         }
     }
 

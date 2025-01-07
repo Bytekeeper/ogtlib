@@ -4,6 +4,11 @@ use glam::IVec2;
 #[cfg(feature = "miniquad")]
 pub mod miniquad;
 
+pub(crate) fn quit() {
+    #[cfg(feature = "miniquad")]
+    ::miniquad::window::request_quit();
+}
+
 pub(crate) fn configure_blend() {
     #[cfg(feature = "miniquad")]
     unsafe {

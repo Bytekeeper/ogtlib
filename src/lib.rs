@@ -80,6 +80,10 @@ impl Context {
         crate::backend::set_viewport(top_left, bottom_right);
     }
 
+    pub fn quit(&self) {
+        crate::backend::quit();
+    }
+
     pub fn screen_size(&self) -> UVec2 {
         self.screen_size
     }

@@ -16,7 +16,7 @@ miniquad = {version = "0.4", features = ["log-impl"], optional = true}
 quad-rand = "0.2.1"
 fontdue = "0.9"
 #symphonia = "0.4"
-kira = { version = "0.9", default-features = false }
+kira = { version = "0.10", default-features = false }
 
 [target.'cfg(target_family = "wasm")'.dependencies]
 wee_alloc = "0.4"
